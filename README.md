@@ -52,17 +52,5 @@ exchange.inbox.protocol (W) [imap|pop3]
 exchange.inbox.user (W)
 exchange.inbox.password (WO)
 
-Query Database
----------------
-
-CREATE TABLE config(
-	property	VARCHAR(32)	NOT NULL,
-	user_access	VARCHAR(4)	NOT NULL, -- R(eadable) W(riteable) WO(write only) H(hidden)
-	last_modified	TIMESTAMP	NOT NULL, -- last modified timestamp
-	modified_by	VARCHAR(32)	    NULL, -- user name or NULL for system user
-	type	VARCHAR(16) NOT NULL,
-	value	TEXT,	
-	PRIMARY KEY(property)
-);
 
 -- for param names, see dwh-gateway/README.md
