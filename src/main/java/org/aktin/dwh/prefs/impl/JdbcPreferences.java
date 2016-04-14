@@ -61,4 +61,10 @@ public class JdbcPreferences implements Preferences, Closeable{
 		return null;
 	}
 
+	@Override
+	public void flush() throws IOException {
+		// TODO Auto-generated method stub
+		
+	}
+
 }
