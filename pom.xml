@@ -35,7 +35,15 @@
 			<groupId>org.hsqldb</groupId>
 			<artifactId>hsqldb</artifactId>
 			<version>2.3.3</version>
+			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.aktin.dwh</groupId>
+			<artifactId>dwh-db</artifactId>
+			<version>0.1-SNAPSHOT</version>
+			<type>test-jar</type>
+			<scope>test</scope>
+		</dependency>		
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>

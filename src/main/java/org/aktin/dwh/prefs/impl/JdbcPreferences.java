@@ -2,6 +2,8 @@ package org.aktin.dwh.prefs.impl;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Singleton;
@@ -21,7 +23,25 @@ public class JdbcPreferences implements Preferences, Closeable{
 	public JdbcPreferences() {
 		// get database connection
 		// prepare connections
-		// load preferences
+		// load preferences (call load(Connection)
+	}
+	
+	/**
+	 * Loads all preferences from the provided connection
+	 * @param connection
+	 * @exception SQLException SQL error
+	 */
+	public void load(Connection connection)throws SQLException{
+		// TODO load preferences from connection
+	}
+	
+	/**
+	 * Writes (changed/all) preferences to the given connection
+	 * @param connection connection
+	 * @throws SQLException SQL error
+	 */
+	public void write(Connection connection)throws SQLException{
+		// TODO implement
 	}
 	
 	@PreDestroy
