@@ -53,4 +53,28 @@ exchange.inbox.user (W)
 exchange.inbox.password (WO)
 
 
--- for param names, see dwh-gateway/README.md
+-- Multiple Brokers --
+DWH can be registered with multiple brokers.
+broker = {
+	name: 'AKTIN Pilot',
+	keystore: '',
+	lastcontact,
+	exchange_method,
+	
+	https : {
+		interval (W) interval in hours between polling connections to broker
+		broker (W) server name of the AKTIN broker
+		pool (W) server name of AKTIN pool
+	}
+	// or
+	
+	inbox : {
+		address (W) email address to receive queries
+		interval (W) interval in hours between checking for new emails
+		server (W) server configuration to check for query emails
+		port (W)
+		protocol (W) [imap|pop3]
+		user (W)
+		password (WO)
+	}
+}
