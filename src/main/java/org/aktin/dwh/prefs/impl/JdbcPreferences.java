@@ -6,8 +6,13 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 import javax.annotation.PreDestroy;
+import javax.enterprise.inject.Any;
+import javax.enterprise.inject.Instance;
+import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import org.aktin.Configurable;
+import org.aktin.Module;
 import org.aktin.prefs.Preference;
 import org.aktin.prefs.Preferences;
 
@@ -25,6 +30,13 @@ public class JdbcPreferences implements Preferences, Closeable{
 		// prepare connections
 		// load preferences (call load(Connection)
 	}
+	
+	/**
+	 * Holds references to all configurable classes
+	 * TODO do the annotations work on a method to receive notification if a new module was injected
+	 */
+	@Inject @Any
+	Instance<Configurable> configurables;
 	
 	/**
 	 * Loads all preferences from the provided connection

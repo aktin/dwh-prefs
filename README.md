@@ -26,6 +26,13 @@ tls.keystore.path (R) keystore containing key and certificates for TLS
 local.name (W) local name for this site/clinic, 
 local.contact.name (W)
 local.contact.email (W)
+x509.cn
+x509.o
+x509.ou
+x509.l
+x509.st
+x509.c
+x509.emailAddress
 
 i2b2.project (R) i2b2 project id "Demo"
 i2b2.crc.ds (R) i2b2 jndi datasource "java:/QueryToolDemoDS"
@@ -52,7 +59,7 @@ exchange.inbox.protocol (W) [imap|pop3]
 exchange.inbox.user (W)
 exchange.inbox.password (WO)
 
-
+exec.r.path (W) /
 -- Multiple Brokers --
 DWH can be registered with multiple brokers.
 broker = {
