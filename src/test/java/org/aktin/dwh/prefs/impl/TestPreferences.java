@@ -1,34 +1,28 @@
 package org.aktin.dwh.prefs.impl;
 
 import java.io.IOException;
-import java.sql.Connection;
+import java.io.InputStream;
 import java.sql.SQLException;
 
-import org.aktin.dwh.PreferenceKeys;
-import org.aktin.dwh.db.TestDatabase;
-import org.junit.After;
+import org.aktin.dwh.PreferenceKey;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 public class TestPreferences {
-	private Connection dbc;
+	private PropertyFilePreferences prefs;
 	
 	@Before
-	public void openDatabase() throws SQLException{
-		dbc = TestDatabase.createTestConnection();
+	public void loadTestPrefs() throws SQLException, IOException{
+		try( InputStream in = getClass().getResourceAsStream("/aktin.properties") ){
+			prefs = new PropertyFilePreferences(in);
+		}
 	}
 	
 	@Test
-	public void testSomething() throws SQLException, IOException{
-		JdbcPreferences prefs = new JdbcPreferences();
-		prefs.load(dbc);
-		prefs.putString(PreferenceKeys.TLS_KEYSTORE_PATH, "test/path/keystore.pkcs12");
-		// TODO: check if the preference can be retrieved again
-		prefs.write(dbc);
-		prefs.close();
-	}
-	@After
-	public void closeDatabase() throws SQLException{
-		dbc.close();
+	public void verifyMandatoryPreferenceKeys() throws SQLException, IOException{
+		for( PreferenceKey key : PreferenceKey.values() ){
+			Assert.assertNotNull(prefs.get(key.key()),"Preference entry expected for key "+key);
+		}
 	}
 }
