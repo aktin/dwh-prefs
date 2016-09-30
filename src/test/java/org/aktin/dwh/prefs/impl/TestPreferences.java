@@ -21,8 +21,9 @@ public class TestPreferences {
 	
 	@Test
 	public void verifyMandatoryPreferenceKeys() throws SQLException, IOException{
-		for( PreferenceKey key : PreferenceKey.values() ){
-			Assert.assertNotNull(prefs.get(key.key()),"Preference entry expected for key "+key);
+		for( PreferenceKey pref : PreferenceKey.values() ){
+			String value = prefs.get(pref.key());
+			Assert.assertNotNull("Preference entry expected for key "+pref.key(), value);
 		}
 	}
 }

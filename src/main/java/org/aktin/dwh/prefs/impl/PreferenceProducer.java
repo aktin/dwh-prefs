@@ -6,6 +6,7 @@ import javax.inject.Inject;
 
 import org.aktin.Preference;
 import org.aktin.Preferences;
+import org.aktin.dwh.PreferenceKey;
 
 public class PreferenceProducer {
 
@@ -13,9 +14,9 @@ public class PreferenceProducer {
 	private Preferences prefs;
 
 	@Produces
-	@Preference(key="")
+	@Preference(key=PreferenceKey.commonName)
 	public String getPreferenceString(InjectionPoint p){
-		String key = p.getAnnotated().getAnnotation(Preference.class).key();
-		return prefs.get(key);
+		PreferenceKey key = p.getAnnotated().getAnnotation(Preference.class).key();
+		return prefs.get(key.key());
 	}
 }
