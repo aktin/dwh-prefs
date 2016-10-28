@@ -51,4 +51,8 @@ public class PropertyFilePreferences implements Preferences{
 	public Set<String> keySet() {
 		return (Set)props.keySet();
 	}
+
+	public void put(String key, String value){
+		props.put(key, value);
+	}
 }
