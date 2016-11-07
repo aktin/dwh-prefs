@@ -1,7 +1,9 @@
 package org.aktin.dwh.prefs.impl;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -36,6 +38,13 @@ public class PropertyFilePreferences implements Preferences{
 		load(properties);
 	}
 
+	public static PropertyFilePreferences empty(){
+		try {
+			return new PropertyFilePreferences(new ByteArrayInputStream(new byte[0]));
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
+	}
 	private void load(InputStream properties) throws IOException{
 		props = new Properties();
 		props.load(properties);
