@@ -19,7 +19,7 @@ import org.aktin.dwh.ImportSummary;
 @Singleton
 @XmlAccessorType(XmlAccessType.NONE)
 @XmlRootElement(name="import-statistics")
-@XmlType(propOrder={"start","lastImport","lastFailure","importOkCount","importErrorCount","validationErrorCount","lastErrors"})
+@XmlType(propOrder={"start","lastWrite","lastFailure","importedCount","updatedCount","invalidCount","failedCount","lastErrors"})
 public class ImportSummaryImpl implements ImportSummary{
 
 	/** Timestamp since when the summary is logging
@@ -118,7 +118,7 @@ public class ImportSummaryImpl implements ImportSummary{
 		}
 	}
 	@XmlElement(name="last-write")
-	public Date getLastImport(){
+	public Date getLastWrite(){
 		return dateOrNull(getLastWriteTime());
 	}
 
@@ -134,15 +134,15 @@ public class ImportSummaryImpl implements ImportSummary{
 	}
 
 	@Override
-	@XmlElement(name="validation-errors")
-	public int getValidationErrorCount() {
+	@XmlElement(name="failed")
+	public int getFailedCount() {
 		return numValidationFailed;
 	}
 
 
 	@Override
-	@XmlElement(name="import-errors")
-	public int getRejectedCount() {
+	@XmlElement(name="invalid")
+	public int getInvalidCount() {
 		return numRejected;
 	}
 
@@ -160,7 +160,7 @@ public class ImportSummaryImpl implements ImportSummary{
 
 
 	@Override
-	@XmlElementWrapper(name="last-errorsX")
+	@XmlElementWrapper(name="last-errors")
 	@XmlElement(name="error")
 	public List<String> getLastErrors() {
 		List<String> l = new ArrayList<>(previousErrors);
