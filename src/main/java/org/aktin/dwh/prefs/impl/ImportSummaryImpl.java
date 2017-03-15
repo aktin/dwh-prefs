@@ -70,6 +70,8 @@ public class ImportSummaryImpl implements ImportSummary{
 		this.lastImportTime = null;
 	}
 
+	// TODO count repeating errors without adding duplicates to the list. e.g. via ordered hash map
+	
 	@Override
 	public synchronized void addRejected(boolean valid, String error){
 		if( valid == false ){
@@ -136,14 +138,14 @@ public class ImportSummaryImpl implements ImportSummary{
 	@Override
 	@XmlElement(name="failed")
 	public int getFailedCount() {
-		return numValidationFailed;
+		return numRejected;
 	}
 
 
 	@Override
 	@XmlElement(name="invalid")
 	public int getInvalidCount() {
-		return numRejected;
+		return numValidationFailed;
 	}
 
 
