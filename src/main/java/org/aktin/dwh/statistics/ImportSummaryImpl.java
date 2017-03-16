@@ -1,9 +1,7 @@
-package org.aktin.dwh.prefs.impl;
+package org.aktin.dwh.statistics;
 
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.Deque;
-import java.util.LinkedList;
 import java.util.List;
 
 import javax.inject.Singleton;
@@ -19,7 +17,7 @@ import org.aktin.dwh.ImportSummary;
 @Singleton
 @XmlAccessorType(XmlAccessType.NONE)
 @XmlRootElement(name="import-statistics")
-@XmlType(propOrder={"start","lastWrite","lastFailure","importedCount","updatedCount","invalidCount","failedCount","lastErrors"})
+@XmlType(propOrder={"start","lastWrite","lastFailure","importedCount","updatedCount","invalidCount","failedCount","lastRepeatedErrors"})
 public class ImportSummaryImpl implements ImportSummary{
 
 	/** Timestamp since when the summary is logging
@@ -29,33 +27,17 @@ public class ImportSummaryImpl implements ImportSummary{
 	protected Long lastErrorTime;
 	protected Long lastImportTime;
 	// all fields are used by JAXB
-	protected int maxNumStacktraces;
 	protected int numValidationFailed;
 	protected int numRejected;
 	protected int numCreated;
 	protected int numUpdated;
 
-	private Deque<String> previousErrors;
+	// error cache (protected for unit tests)
+	protected ErrorCache previousErrors;
 
-//	private static class ThrowableAdapter extends XmlAdapter<String, Throwable>{
-//
-//		@Override
-//		public Throwable unmarshal(String v) throws Exception {
-//			throw new UnsupportedOperationException();
-//		}
-//
-//		@Override
-//		public String marshal(Throwable v) throws Exception {
-//			StringWriter w = new StringWriter();
-//			v.printStackTrace(new PrintWriter(w));
-//			return w.toString();
-//		}
-//		
-//	}
 	public ImportSummaryImpl(){
 		since = System.currentTimeMillis();
-		previousErrors = new LinkedList<>();
-		maxNumStacktraces = 10;
+		previousErrors = new ErrorCache(20);
 	}
 
 	@Override
@@ -79,11 +61,8 @@ public class ImportSummaryImpl implements ImportSummary{
 		}else{
 			numRejected ++;
 		}
-		if( previousErrors.size() >= maxNumStacktraces ){
-			previousErrors.removeFirst();
-		}
-		previousErrors.addLast(error);
 		this.lastErrorTime = System.currentTimeMillis();
+		previousErrors.add(error, this.lastErrorTime);
 	}
 
 	@Override
@@ -161,11 +140,17 @@ public class ImportSummaryImpl implements ImportSummary{
 	}
 
 
-	@Override
 	@XmlElementWrapper(name="last-errors")
 	@XmlElement(name="error")
-	public List<String> getLastErrors() {
-		List<String> l = new ArrayList<>(previousErrors);
+	public synchronized List<RepeatableError> getLastRepeatedErrors() {
+		List<RepeatableError> l = new ArrayList<>(previousErrors.values());
+		return l;
+	}
+
+	@Override
+	public synchronized Iterable<String> getLastErrors() {
+		List<String> l = new ArrayList<>(previousErrors.size());
+		previousErrors.forEach( (a,b) -> l.add(a) );
 		return l;
 	}
 }
