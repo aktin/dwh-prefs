@@ -3,7 +3,10 @@ package org.aktin.dwh.prefs.impl;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -23,19 +26,20 @@ import org.aktin.Preferences;
  */
 @Singleton
 public class PropertyFilePreferences implements Preferences{
-
 	private Properties props;
 
 	public PropertyFilePreferences() throws IOException {
 		// load preferences (call load(default file)
 		Path propFile = Paths.get(System.getProperty("jboss.server.config.dir"), "aktin.properties");
-		try( InputStream in = Files.newInputStream(propFile) ){
+		try( Reader in = Files.newBufferedReader(propFile, StandardCharsets.UTF_8)){
 			load(in);
 		}
 	}
 
 	public PropertyFilePreferences(InputStream properties) throws IOException{
-		load(properties);
+		try( Reader r = new InputStreamReader(properties, StandardCharsets.UTF_8) ){
+			load(r);
+		}
 	}
 
 	public static PropertyFilePreferences empty(){
@@ -45,7 +49,7 @@ public class PropertyFilePreferences implements Preferences{
 			throw new UncheckedIOException(e);
 		}
 	}
-	private void load(InputStream properties) throws IOException{
+	private void load(Reader properties) throws IOException{
 		props = new Properties();
 		props.load(properties);
 		
