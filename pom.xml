@@ -6,7 +6,7 @@
 	
 	<groupId>org.aktin.dwh</groupId>
 	<artifactId>dwh-prefs</artifactId>
-	<version>0.3-SNAPSHOT</version>
+	<version>0.2-SNAPSHOT</version>
 	
 	<parent>
 		<groupId>org.aktin</groupId>
