@@ -6,17 +6,17 @@
 	
 	<groupId>org.aktin.dwh</groupId>
 	<artifactId>dwh-prefs</artifactId>
-	<version>0.2-SNAPSHOT</version>
+	<version>0.2</version>
 	
 	<parent>
 		<groupId>org.aktin</groupId>
 		<artifactId>aktin</artifactId>
-		<version>0.3-SNAPSHOT</version>
+		<version>0.3</version>
 	</parent>
 
 	<scm>
 		<developerConnection>scm:git:git@github.com:aktin/dwh-prefs.git</developerConnection>
-		<tag>HEAD</tag>
+		<tag>v0.2</tag>
 	</scm>
 
 	<build>
