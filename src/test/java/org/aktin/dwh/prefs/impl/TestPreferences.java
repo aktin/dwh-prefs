@@ -27,6 +27,12 @@ public class TestPreferences {
 		}
 	}
 
+	@Test
+	public void verifyHostnameGuessing() throws IOException{
+		String value = prefs.get(PreferenceKey.serverUrl);
+		Assert.assertNotNull(value);
+	}
+
 	public Preferences getPreferences(){
 		return prefs;
 	}
