@@ -116,7 +116,7 @@ public class EmailServiceImpl implements EmailService {
 		MimeMessage msg = new MimeMessage(mailSession);
 		msg.setRecipients(RecipientType.TO, emailRecipients);
 		msg.setReplyTo(replyTo);
-		msg.setSubject(subject);
+		msg.setSubject(subject, "UTF-8");
 		msg.setSentDate(new Date());
 		return msg;
 	}
