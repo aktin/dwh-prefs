@@ -8,8 +8,11 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 
 import javax.ejb.Stateless;
+import javax.inject.Inject;
 
+import org.aktin.Preferences;
 import org.aktin.dwh.Anonymizer;
+import org.aktin.dwh.PreferenceKey;
 
 // technically, singleton is not needed,
 // but we need some bean qualifier to allow external dependencies
@@ -17,6 +20,8 @@ import org.aktin.dwh.Anonymizer;
 @Stateless
 public class OneWayAnonymizer implements Anonymizer {
 
+	@Inject
+	private Preferences prefs;
 	/**
 	 * Calculate a one way hash function for the given input.
 	 * The algorithm is as follows:
@@ -35,14 +40,23 @@ public class OneWayAnonymizer implements Anonymizer {
 	@Override
 	public String calculateAbstractPseudonym(String ...strings) {
 		MessageDigest digest;
+		String algo = prefs.get(PreferenceKey.pseudonymAlgorithm);
+		if( algo == null ){
+			// default to SHA-1
+			algo = "SHA-1";
+		}
 		try {
-			digest = MessageDigest.getInstance("SHA-1");
+			digest = MessageDigest.getInstance(algo);
 		} catch (NoSuchAlgorithmException e) {
 			// should not happen. SHA-1 is guaranteed to be included in the JRE
 			throw new IllegalStateException("Digest algorithm not available",e);
 		}
+		String salt = prefs.get(PreferenceKey.pseudonymSalt);
+		if( salt == null ){
+			salt = ""; // default to no salt
+		}
 		// join arguments
-		String composite = String.join("/", strings);
+		String composite = salt + String.join("/", strings);
 		// logging
 		// encode to bytes
 		ByteBuffer input = Charset.forName("UTF-8").encode(composite);
