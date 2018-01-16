@@ -6,12 +6,12 @@
 	
 	<groupId>org.aktin.dwh</groupId>
 	<artifactId>dwh-prefs</artifactId>
-	<version>0.5rc2-SNAPSHOT</version>
+	<version>0.5-SNAPSHOT</version>
 	
 	<parent>
 		<groupId>org.aktin</groupId>
 		<artifactId>aktin</artifactId>
-		<version>0.7</version>
+		<version>0.7-SNAPSHOT</version>
 	</parent>
 
 	<scm>
@@ -38,7 +38,7 @@
 		<dependency>
 			<groupId>org.aktin</groupId>
 			<artifactId>dwh-api</artifactId>
-			<version>0.3</version>
+			<version>0.3-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>javax</groupId>
