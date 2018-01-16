@@ -35,10 +35,10 @@ public class OneWayAnonymizer implements Anonymizer {
 	 * 
 	 * @param strings input
 	 * @return string hash
-	 * @throws DigestException error calculating message digest 
+	 * @throws IllegalStateException e.g. wrapped NoSuchAlgorithmException if the algorithm is not available 
 	 */
 	@Override
-	public String calculateAbstractPseudonym(String ...strings) {
+	public String calculateAbstractPseudonym(String ...strings) throws IllegalStateException{
 		MessageDigest digest;
 		String algo = prefs.get(PreferenceKey.pseudonymAlgorithm);
 		if( algo == null ){
