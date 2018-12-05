@@ -62,13 +62,13 @@
 		<dependency>
 			<groupId>org.aktin.dwh</groupId>
 			<artifactId>dwh-db</artifactId>
-			<version>0.2</version>
+			<version>0.6</version>
 			<scope>test</scope>
 		</dependency>		
 		<dependency>
 			<groupId>org.aktin.dwh</groupId>
 			<artifactId>dwh-db</artifactId>
-			<version>0.2</version>
+			<version>0.6</version>
 			<type>test-jar</type>
 			<scope>test</scope>
 		</dependency>		
