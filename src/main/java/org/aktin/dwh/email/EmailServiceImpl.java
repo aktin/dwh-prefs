@@ -113,12 +113,18 @@ public class EmailServiceImpl implements EmailService {
 	}
 
 	private MimeMessage createMessage(String subject) throws MessagingException{
+		return createMessage(subject, this.emailRecipients);
+	}
+	
+	private MimeMessage createMessage(String subject, Address[] recipients) throws MessagingException{
 		MimeMessage msg = new MimeMessage(mailSession);
-		msg.setRecipients(RecipientType.TO, emailRecipients);
+		msg.setFrom();
+		msg.setRecipients(RecipientType.TO, recipients);
 		msg.setReplyTo(replyTo);
 		msg.setSubject(subject, "UTF-8");
 		msg.setSentDate(new Date());
 		return msg;
 	}
+	
 
 }
