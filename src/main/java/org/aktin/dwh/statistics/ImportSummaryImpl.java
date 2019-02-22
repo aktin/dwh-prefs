@@ -14,6 +14,11 @@ import javax.xml.bind.annotation.XmlType;
 
 import org.aktin.dwh.ImportSummary;
 
+/**
+ * Count statistics
+ * @author marap1
+ *
+ */
 @Singleton
 @XmlAccessorType(XmlAccessType.NONE)
 @XmlRootElement(name="import-statistics")
@@ -55,7 +60,7 @@ public class ImportSummaryImpl implements ImportSummary{
 	// TODO count repeating errors without adding duplicates to the list. e.g. via ordered hash map
 	
 	@Override
-	public synchronized void addRejected(boolean valid, String error){
+	public synchronized void addRejected(String templateId, boolean valid, String error){
 		if( valid == false ){
 			numValidationFailed ++;
 		}else{
@@ -66,12 +71,12 @@ public class ImportSummaryImpl implements ImportSummary{
 	}
 
 	@Override
-	public void addCreated(){
+	public void addCreated(String templateId){
 		this.lastImportTime = System.currentTimeMillis();
 		this.numCreated ++;
 	}
 	@Override
-	public void addUpdated(){
+	public void addUpdated(String templateId){
 		this.lastImportTime = System.currentTimeMillis();
 		this.numUpdated ++;
 	}
