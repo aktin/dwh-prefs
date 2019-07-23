@@ -6,7 +6,7 @@
 	
 	<groupId>org.aktin.dwh</groupId>
 	<artifactId>dwh-prefs</artifactId>
-	<version>0.7-SNAPSHOT</version>
+	<version>0.7</version>
 	
 	<parent>
 		<groupId>org.aktin</groupId>
@@ -16,7 +16,7 @@
 
 	<scm>
 		<developerConnection>scm:git:git@github.com:aktin/dwh-prefs.git</developerConnection>
-		<tag>HEAD</tag>
+		<tag>v0.7</tag>
 	</scm>
 
 	<build>
@@ -38,7 +38,7 @@
 		<dependency>
 			<groupId>org.aktin</groupId>
 			<artifactId>dwh-api</artifactId>
-			<version>0.5-SNAPSHOT</version>
+			<version>0.5</version>
 		</dependency>
 		<dependency>
 			<groupId>javax</groupId>
