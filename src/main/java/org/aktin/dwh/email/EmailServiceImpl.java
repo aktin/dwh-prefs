@@ -27,6 +27,11 @@ import org.aktin.Preferences;
 import org.aktin.dwh.EmailService;
 import org.aktin.dwh.PreferenceKey;
 
+/**
+ * Implementation of {@link EmailService} which sends emails via the wildfly JNDI email session. 
+ * @author R.W.Majeed
+ *
+ */
 @Singleton
 public class EmailServiceImpl implements EmailService {
 	private static final Logger log = Logger.getLogger(EmailService.class.getName());
@@ -85,7 +90,7 @@ public class EmailServiceImpl implements EmailService {
 			bp.setText(content.toString(), "UTF-8");
 			mp.addBodyPart(bp);
 			msg.setContent(mp);
-			Transport.send(msg);
+			transportSend(msg);
 		} catch (MessagingException e) {
 			throw new IOException("Unable to send email: "+subject,e);
 		}
@@ -104,14 +109,27 @@ public class EmailServiceImpl implements EmailService {
 			bp = new MimeBodyPart();
 			bp.setFileName(attachment.getName());
 			bp.setDataHandler(new DataHandler(attachment));
-				mp.addBodyPart(bp);
+			mp.addBodyPart(bp);
 			msg.setContent(mp);
-			Transport.send(msg);
+			transportSend(msg);
 		} catch (MessagingException e) {
 			throw new IOException("Unable to send email: "+subject,e);
 		}
 	}
 
+	/**
+	 * Send the message. Does not do anything, if no recipients are configured.
+	 * @param msg message
+	 * @throws MessagingException error sending the email
+	 */
+	private void transportSend(MimeMessage msg) throws MessagingException {
+		if( emailRecipients.length == 0 ) {
+			// email sending disabled
+			log.info("Email sending disabled (no recipient). Message dropped: "+msg.getSubject());
+			return;
+		}
+		Transport.send(msg);
+	}
 	private MimeMessage createMessage(String subject) throws MessagingException{
 		return createMessage(subject, this.emailRecipients);
 	}
