@@ -2,6 +2,8 @@ package org.aktin.dwh.prefs.impl;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.aktin.Preferences;
 import org.aktin.dwh.PreferenceKey;
@@ -33,6 +35,19 @@ public class TestPreferences {
 		Assert.assertNotNull(value);
 	}
 
+	@Test
+	public void verifyPrefixedPreferenceLists() {
+		List<String> keys = new ArrayList<>();
+		List<String> values = new ArrayList<>();
+		int count = prefs.forPrefix("mail.", (k,v) -> {keys.add(k); values.add(v);} );
+		Assert.assertEquals(10, count);
+		Assert.assertEquals(count, keys.size());
+		for( int i=0; i<keys.size(); i++ ) {
+			String key = keys.get(i);
+			Assert.assertEquals(prefs.get(key), values.get(i));
+		}
+	}
+	
 	public Preferences getPreferences(){
 		return prefs;
 	}

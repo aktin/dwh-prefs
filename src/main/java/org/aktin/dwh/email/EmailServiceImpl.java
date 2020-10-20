@@ -3,6 +3,7 @@ package org.aktin.dwh.email;
 import java.io.IOException;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Properties;
 import java.util.logging.Logger;
 
 import javax.activation.DataHandler;
@@ -11,7 +12,9 @@ import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.mail.Address;
+import javax.mail.Authenticator;
 import javax.mail.MessagingException;
+import javax.mail.PasswordAuthentication;
 import javax.mail.Session;
 import javax.mail.Transport;
 import javax.mail.internet.AddressException;
@@ -43,25 +46,44 @@ public class EmailServiceImpl implements EmailService {
 	private Address[] replyTo;
 
 	private Session mailSession;
+
 	private Locale locale;
 
 	@PostConstruct
 	public void initialize(){
 		// load mail session
 		String jndiName = prefs.get(PreferenceKey.emailSession);
-		log.info("Using mail session "+jndiName);
-		try {
-			InitialContext ctx = new InitialContext();
-			mailSession = (Session)ctx.lookup(jndiName);
-		} catch (NamingException e) {
-			throw new IllegalStateException("Unable to load email session", e);
+		if( jndiName != null && jndiName.contentEquals("local")==false ) {
+			// use J2EE/wildfly email session
+			log.info("Mail session via JNDI: "+jndiName);
+			try {
+				InitialContext ctx = new InitialContext();
+				mailSession = (Session)ctx.lookup(jndiName);
+			} catch (NamingException e) {
+				throw new IllegalStateException("Unable to load email session", e);
+			}
+			
+		}else {
+			log.info("Mail session via local configuration");
+			// use direct email session with properties
+			Properties props = new Properties();
+			// this will also include mail.smtps.* properties
+			prefs.forPrefix("mail.", props::setProperty);
+			
+			mailSession = Session.getInstance(props, new Authenticator() {
+				@Override
+				protected PasswordAuthentication getPasswordAuthentication() {
+					return new PasswordAuthentication(prefs.get("mail.user"), prefs.get("mail.x.password"));
+				}
+			});
+			
 		}
 
 		// default recipients
 		try {
 			emailRecipients = InternetAddress.parse(prefs.get(PreferenceKey.email));
 			// reply to address
-			replyTo = InternetAddress.parse(prefs.get(PreferenceKey.emailReplyTo));
+			replyTo = InternetAddress.parse(prefs.get("mail.x.replyto"));
 		} catch (AddressException e) {
 			throw new IllegalStateException("Error parsing email addresses from preferences", e);
 		}
@@ -128,6 +150,7 @@ public class EmailServiceImpl implements EmailService {
 			log.info("Email sending disabled (no recipient). Message dropped: "+msg.getSubject());
 			return;
 		}
+		msg.saveChanges();
 		Transport.send(msg);
 	}
 	private MimeMessage createMessage(String subject) throws MessagingException{
