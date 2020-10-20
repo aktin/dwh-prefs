@@ -2,7 +2,6 @@ package org.aktin.dwh.anon;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.security.DigestException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
