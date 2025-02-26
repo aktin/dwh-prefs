@@ -1,23 +1,13 @@
 package org.aktin.dwh.prefs.impl;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.UncheckedIOException;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.Properties;
-import java.util.Set;
+import java.nio.file.*;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -34,14 +24,16 @@ import org.aktin.dwh.PreferenceKey;
  *
  */
 @Singleton
-public class PropertyFilePreferences implements Preferences{
+public class PropertyFilePreferences implements Preferences {
 	private static final Logger log = Logger.getLogger(PropertyFilePreferences.class.getName());
 	private Properties props;
+	private final Path aktinPropertiesFilepath = Paths.get(System.getProperty("jboss.server.config.dir"), "aktin.properties");
+
+	private WildflyGuardian guard = new WildflyGuardian(this.getBackupPath().toString(), this.aktinPropertiesFilepath.toString());
 
 	public PropertyFilePreferences() throws IOException {
 		// load preferences (call load(default file)
-		Path propFile = Paths.get(System.getProperty("jboss.server.config.dir"), "aktin.properties");
-		try( Reader in = Files.newBufferedReader(propFile, StandardCharsets.UTF_8)){
+		try( Reader in = Files.newBufferedReader(this.aktinPropertiesFilepath, StandardCharsets.UTF_8)){
 			load(in);
 		}
 	}
@@ -106,6 +98,66 @@ public class PropertyFilePreferences implements Preferences{
 		}
 		return "http://"+addr.getHostAddress()+"/";
 	}
+
+	/**
+	 * Receives a List of key value pairs of updated preference properties.
+	 * Iterates the current aktin.properties file and updates the values. Then overwrites the original file.
+	 * Returns a String that contains an error message if file could not be loaded or changed,
+	 * otherwise return is empty String.
+	 * @param newProps
+	 * @return String
+	 */
+	public String updatePropertiesFile(Map<String, String> newProps) throws IOException, InterruptedException {
+		WildflyGuardian guard = new WildflyGuardian(getBackupPath().toString(), this.aktinPropertiesFilepath.toString());
+		guard.createBackup();
+		List<String> lines;
+		try {
+			lines = Files.readAllLines(this.aktinPropertiesFilepath);
+		} catch (IOException e) {
+            return "ERR: properties file could not be loaded at: "+String.valueOf(this.aktinPropertiesFilepath);
+        }
+        List<String> modifiedLines = new ArrayList<>();
+
+		// Update values from property file
+		for (String line: lines) {
+			String[] keyValue = line.split("=", 2);
+			if (keyValue.length == 2){
+				String key = keyValue[0];
+				String value = keyValue[1];
+				if (!line.startsWith("#") && !key.isEmpty() && newProps.containsKey(key)) {
+					line = line.replace(value, newProps.get(key));
+				}
+				modifiedLines.add(line);
+			}
+		}
+
+		// Overwrite properties file with new values
+		try {
+			if(!modifiedLines.isEmpty()) {
+				Files.write(this.aktinPropertiesFilepath, modifiedLines, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+			}
+		} catch (IOException e) {
+			return "ERR: properties file could not be overwritten: "+String.valueOf(this.aktinPropertiesFilepath);
+		}
+		String restart = this.getGuard().restartWildflyService();
+
+		return restart;
+	}
+
+	private String applyChanges(WildflyGuardian guard) throws IOException, InterruptedException {
+		return guard.restartWildflyService();
+//		guard.start();
+//		String target = "src/main/java/org/aktin/dwh/prefs/impl/WildflyGuardian.java";
+//		ProcessBuilder pb = new ProcessBuilder("java", "cp", target);
+//		pb.environment().put("BACKUP_PATH", getBackupPath().toString());
+//		pb.environment().put("ACTIVE_PATH", this.aktinPropertiesFilepath.toString());
+//		pb.start();
+	}
+
+	private Path getBackupPath() {
+		return Paths.get(String.valueOf(this.aktinPropertiesFilepath.getParent()), "backup.txt");
+	}
+
 	@Override
 	public String get(String key) {
 		return props.getProperty(key);
@@ -120,4 +172,9 @@ public class PropertyFilePreferences implements Preferences{
 	public void put(String key, String value){
 		props.put(key, value);
 	}
+
+	public WildflyGuardian getGuard() {
+		return this.guard;
+	}
+
 }
