@@ -79,5 +79,13 @@
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>org.wildfly.core</groupId>
+			<artifactId>wildfly-cli</artifactId>
+			<version>14.0.1.Final</version>
+		</dependency>
+
+
+
 	</dependencies>
 </project>
