@@ -44,7 +44,6 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
         versions.put("postgres", getPostgresVersion());
         versions.put("apache2", getApacheVersion());
         versions.put("dwh-j2ee", getDwhVersion());
-        versions.put("dwh-api", getDwhApiVersion());
         brokerResourceManager.putMyResourceProperties("versions", versions);
     }
 
@@ -258,12 +257,5 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
         if (version.isEmpty())
             version = "[undefined]";
         return version;
-    }
-
-    /**
-     * get the running version of dwh-api
-     */
-    private String getDwhApiVersion() {
-        return Objects.toString(PreferenceKey.class.getPackage().getImplementationVersion());
     }
 }
