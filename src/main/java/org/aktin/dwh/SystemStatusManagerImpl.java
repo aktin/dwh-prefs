@@ -193,9 +193,6 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
         return result;
     }
 
-    /**
-     * get the version of running operating system by reading /etc/issue.net
-     */
     private String getOsVersion() {
         try {
             Path path = Paths.get("/etc/issue.net");
@@ -211,17 +208,11 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
         return "[error]";
     }
 
-    /**
-     * get the kernel version by running "uname -r"
-     */
     private String getKernelVersion() {
         String command = String.join(" ", "uname", "-r");
         return runBashCommand(command);
     }
 
-    /**
-     * get the java version from java system properties
-     */
     private String getJavaVersion() {
         return String.join("/", System.getProperty("java.vendor"), System.getProperty("java.version"));
     }
@@ -230,23 +221,14 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
         return Objects.toString(javax.ejb.TimerService.class.getPackage().getImplementationVersion());
     }
 
-    /**
-     * get the installed version of linux package postgresql-12
-     */
     private String getPostgresVersion() {
-        return getLinuxPackageVersion("postgresql-12");
+        return getLinuxPackageVersion("postgresql");
     }
 
-    /**
-     * get the installed version of linux package apache2
-     */
     private String getApacheVersion() {
         return getLinuxPackageVersion("apache2");
     }
 
-    /**
-     * get the running version of dwh-j2ee
-     */
     private String getDwhVersion() {
         String version = "";
         try {
