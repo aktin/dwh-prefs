@@ -44,6 +44,9 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
         versions.put("postgres", getLinuxPackageVersion("postgresql"));
         versions.put("apache2", getLinuxPackageVersion("apache2"));
         versions.put("dwh-j2ee", getDwhVersion());
+        versions.put("aktin-notaufnahme-i2b2", getLinuxPackageVersion("aktin-notaufnahme-i2b2"));
+        versions.put("aktin-notaufnahme-dwh", getLinuxPackageVersion("aktin-notaufnahme-dwh"));
+        versions.put("aktin-notaufnahme-updateagent", getLinuxPackageVersion("aktin-notaufnahme-updateagent"));
         brokerResourceManager.putMyResourceProperties("versions", versions);
     }
 
