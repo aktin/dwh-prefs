@@ -40,7 +40,7 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
         versions.put("os", getOsVersion());
         versions.put("kernel", getKernelVersion());
         versions.put("java", getJavaVersion());
-        versions.put("j2ee-impl", getApplicationServerVersion());
+        versions.put("wildfly", getWildflyVersion());
         versions.put("postgres", getPostgresVersion());
         versions.put("apache2", getApacheVersion());
         versions.put("dwh-j2ee", getDwhVersion());
@@ -217,8 +217,13 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
         return String.join("/", System.getProperty("java.vendor"), System.getProperty("java.version"));
     }
 
-    private String getApplicationServerVersion() {
-        return Objects.toString(javax.ejb.TimerService.class.getPackage().getImplementationVersion());
+    private String getWildflyVersion() {
+        String version = System.getProperty("jboss.product.version");
+        if (version == null) {
+            LOGGER.log(Level.WARNING, "WildFly version property not found.");
+            version = "[undefined]";
+        }
+        return version;
     }
 
     private String getPostgresVersion() {
