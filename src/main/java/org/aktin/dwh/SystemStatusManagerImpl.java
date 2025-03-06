@@ -40,14 +40,24 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
         versions.put("os", getOsVersion());
         versions.put("kernel", getKernelVersion());
         versions.put("java", getJavaVersion());
-        versions.put("wildfly", getWildflyVersion());
-        versions.put("postgres", getLinuxPackageVersion("postgresql"));
-        versions.put("apache2", getLinuxPackageVersion("apache2"));
         versions.put("dwh-j2ee", getDwhVersion());
-        versions.put("aktin-notaufnahme-i2b2", getLinuxPackageVersion("aktin-notaufnahme-i2b2"));
-        versions.put("aktin-notaufnahme-dwh", getLinuxPackageVersion("aktin-notaufnahme-dwh"));
-        versions.put("aktin-notaufnahme-updateagent", getLinuxPackageVersion("aktin-notaufnahme-updateagent"));
-        brokerResourceManager.putMyResourceProperties("versions", versions);
+        if (isRunningInDocker()) {
+            versions.put("host", "Docker");
+        } else {
+            versions.put("postgres", getLinuxPackageVersion("postgresql"));
+            versions.put("wildfly", getWildflyVersion());
+            versions.put("apache2", getLinuxPackageVersion("apache2"));
+            versions.put("aktin-notaufnahme-i2b2",
+                getLinuxPackageVersion("aktin-notaufnahme-i2b2"));
+            versions.put("aktin-notaufnahme-dwh", getLinuxPackageVersion("aktin-notaufnahme-dwh"));
+            versions.put("aktin-notaufnahme-updateagent",
+                getLinuxPackageVersion("aktin-notaufnahme-updateagent"));
+            brokerResourceManager.putMyResourceProperties("versions", versions);
+        }
+    }
+
+    private boolean isRunningInDocker() {
+        return new java.io.File("/.dockerenv").exists();
     }
 
     /**
