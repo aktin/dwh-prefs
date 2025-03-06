@@ -48,24 +48,50 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
     }
 
     /**
-     * Returns the corresponding installed version of a given linux pacakge
-     * (Only apt package manager is supported)
+     * Retrieves the installed version of a specified Linux package using apt.
      *
-     * @param aptPackage name of apt package
-     * @return corresponding version or [not installed] if not installed or [error] on thrown exception
+     * @param aptPackage the name of the apt package.
+     * @return the installed version, "[not installed]" if not found, or "[error]" on error.
      */
     @Override
     public String getLinuxPackageVersion(String aptPackage) {
-        String version;
         try {
-            version = getAptPackageVersion(aptPackage);
+            String version = getAptPackageVersion(aptPackage);
             if (version == null)
-                version = "[not installed]";
+               return "[not installed]";
+            return version;
         } catch (IOException e) {
             LOGGER.log(Level.WARNING, String.format("Error while retrieving version of linux package %s", aptPackage), e);
-            version = "[error]";
+            return "[error]";
         }
-        return version;
+    }
+
+    /**
+     * Retrieves installed versions for a list of Linux packages using apt.
+     * <p>
+     * Returns a map where each key is a package name and the value is the installed version.
+     * If a package is not installed, its version is set to "[not installed]".
+     * If an error occurs during retrieval, its version is set to "[error]".
+     *
+     * @param listPackages list of apt package names.
+     * @return a map of package names to their installed version.
+     */
+    @Override
+    public Map<String, String> getLinuxPackagesVersion(List<String> listPackages) {
+        Map<String, String> packageVersions = new HashMap<>();
+        try {
+            packageVersions = getAptPackagesVersion(listPackages);
+            for (String aptPackage : listPackages) {
+                if (!packageVersions.containsKey(aptPackage))
+                    packageVersions.put(aptPackage, "[not installed]");
+            }
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, String.format("Error while retrieving the versions of linux packages %s", listPackages), e);
+            for (String aptPackage : listPackages) {
+                packageVersions.put(aptPackage, "[error]");
+            }
+        }
+        return packageVersions;
     }
 
     /**
@@ -85,32 +111,6 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
         if (version.isEmpty())
             version = null;
         return version;
-    }
-
-    /**
-     * Retrieve the corresponding installed versions of a given list of linux packages and collect them in a
-     * map
-     *
-     * @param list_packages list of linux package names
-     * @return Map with {package name, installed version}. Value of map is set to "[not installed]" if package
-     * is not installed or "[error]" if an exception was thrown during version collection
-     */
-    @Override
-    public Map<String, String> getLinuxPackagesVersion(List<String> list_packages) {
-        Map<String, String> map_versions = new HashMap<>();
-        try {
-            map_versions = getAptPackagesVersion(list_packages);
-            for (String aptPackage : list_packages) {
-                if (!map_versions.containsKey(aptPackage))
-                    map_versions.put(aptPackage, "[not installed]");
-            }
-        } catch (IOException e) {
-            LOGGER.log(Level.WARNING, String.format("Error while retrieving the versions of linux packages %s", list_packages), e);
-            for (String aptPackage : list_packages) {
-                map_versions.put(aptPackage, "[error]");
-            }
-        }
-        return map_versions;
     }
 
     /**
