@@ -1,9 +1,17 @@
 package org.aktin.dwh;
 
+import java.lang.management.ManagementFactory;
 import javax.annotation.PostConstruct;
 import javax.ejb.Startup;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import javax.management.AttributeNotFoundException;
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanException;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+import javax.management.ReflectionException;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import java.io.*;
@@ -40,100 +48,107 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
         versions.put("os", getOsVersion());
         versions.put("kernel", getKernelVersion());
         versions.put("java", getJavaVersion());
-        versions.put("j2ee-impl", getApplicationServerVersion());
-        versions.put("postgres", getPostgresVersion());
-        versions.put("apache2", getApacheVersion());
         versions.put("dwh-j2ee", getDwhVersion());
-        versions.put("dwh-api", getDwhApiVersion());
-        brokerResourceManager.putMyResourceProperties("versions", versions);
+        if (isRunningInDocker()) {
+            versions.put("host", "Docker");
+        } else {
+            versions.put("postgresql", getLinuxPackageVersion("postgresql"));
+            versions.put("wildfly", getWildflyVersion());
+            versions.put("apache2", getLinuxPackageVersion("apache2"));
+            versions.put("aktin-notaufnahme-i2b2",
+                getLinuxPackageVersion("aktin-notaufnahme-i2b2"));
+            versions.put("aktin-notaufnahme-dwh", getLinuxPackageVersion("aktin-notaufnahme-dwh"));
+            versions.put("aktin-notaufnahme-updateagent",
+                getLinuxPackageVersion("aktin-notaufnahme-updateagent"));
+            brokerResourceManager.putMyResourceProperties("versions", versions);
+        }
+    }
+
+    private boolean isRunningInDocker() {
+        return new java.io.File("/.dockerenv").exists();
     }
 
     /**
-     * Returns the corresponding installed version of a given linux pacakge
-     * (Only apt package manager is supported)
+     * Retrieves the installed version of a specified Linux package using apt.
      *
-     * @param aptPackage name of apt package
-     * @return corresponding version or [not installed] if not installed or [error] on thrown exception
+     * @param aptPackage the name of the apt package.
+     * @return the installed version, "[not installed]" if not found, or "[error]" on error.
      */
     @Override
     public String getLinuxPackageVersion(String aptPackage) {
-        String version;
         try {
-            version = getAptPackageVersion(aptPackage);
+            String version = getAptPackageVersion(aptPackage);
             if (version == null)
-                version = "[not installed]";
+               return "[not installed]";
+            return version;
         } catch (IOException e) {
             LOGGER.log(Level.WARNING, String.format("Error while retrieving version of linux package %s", aptPackage), e);
-            version = "[error]";
+            return "[error]";
         }
-        return version;
     }
 
     /**
-     * Runs "apt list {package}" in a bash shell to retrieve the installed version of a given linux package
+     * Retrieves installed versions for a list of Linux packages using apt.
+     * <p>
+     * Returns a map where each key is a package name and the value is the installed version.
+     * If a package is not installed, its version is set to "[not installed]".
+     * If an error occurs during retrieval, its version is set to "[error]".
      *
-     * @param aptPackage name of linux package
-     * @return corresponding version or null if not installed
-     * @throws IOException if bash command returns an invalid output
-     */
-    private String getAptPackageVersion(String aptPackage) throws IOException {
-        String version;
-        String command = String.join(" ", "apt", "list", aptPackage);
-        String output_command = runBashCommand(command);
-        if (output_command == null)
-            throw new IOException();
-        version = extractAptVersionFromString(output_command, aptPackage);
-        if (version.isEmpty())
-            version = null;
-        return version;
-    }
-
-    /**
-     * Retrieve the corresponding installed versions of a given list of linux packages and collect them in a
-     * map
-     *
-     * @param list_packages list of linux package names
-     * @return Map with {package name, installed version}. Value of map is set to "[not installed]" if package
-     * is not installed or "[error]" if an exception was thrown during version collection
+     * @param listPackages list of apt package names.
+     * @return a map of package names to their installed version.
      */
     @Override
-    public Map<String, String> getLinuxPackagesVersion(List<String> list_packages) {
-        Map<String, String> map_versions = new HashMap<>();
+    public Map<String, String> getLinuxPackagesVersion(List<String> listPackages) {
+        Map<String, String> packageVersions = new HashMap<>();
         try {
-            map_versions = getAptPackagesVersion(list_packages);
-            for (String aptPackage : list_packages) {
-                if (!map_versions.containsKey(aptPackage))
-                    map_versions.put(aptPackage, "[not installed]");
+            packageVersions = getAptPackagesVersion(listPackages);
+            for (String aptPackage : listPackages) {
+                if (!packageVersions.containsKey(aptPackage))
+                    packageVersions.put(aptPackage, "[not installed]");
             }
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, String.format("Error while retrieving the versions of linux packages %s", list_packages), e);
-            for (String aptPackage : list_packages) {
-                map_versions.put(aptPackage, "[error]");
+            LOGGER.log(Level.WARNING, String.format("Error while retrieving the versions of linux packages %s", listPackages), e);
+            for (String aptPackage : listPackages) {
+                packageVersions.put(aptPackage, "[error]");
             }
         }
-        return map_versions;
+        return packageVersions;
     }
 
     /**
-     * Runs "apt list {package1} {package2} {etc.}" in a bash shell on a given list of linux package names
-     * and collects the package name with corresponding version in a map
+     * Executes "apt list {aptPackage}" in a bash shell to retrieve the installed version of the specified Linux package.
      *
-     * @param list_packages list of linux package names
-     * @return Map with {package name, installed version}
-     * @throws IOException if bash command returns an invalid output
+     * @param aptPackage the name of the Linux package.
+     * @return the installed version, or null if not installed.
+     * @throws IOException if the bash command returns an invalid output.
      */
-    private Map<String, String> getAptPackagesVersion(List<String> list_packages) throws IOException {
-        Map<String, String> map_versions = new HashMap<>();
-        String packages = String.join(" ", list_packages);
-        String command = String.join(" ", "apt", "list", packages);
-        String output_command = runBashCommand(command);
-        if (output_command == null)
-            throw new IOException();
-        list_packages.forEach(aptPackage -> {
-            String version = extractAptVersionFromString(output_command, aptPackage);
-            map_versions.put(aptPackage, version);
+    private String getAptPackageVersion(String aptPackage) throws IOException {
+        String output = runBashCommand("apt list " + aptPackage);
+        if (output == null)
+            throw new IOException("No output from bash command");
+        String version = extractAptVersionFromString(output, aptPackage);
+        if (version.isEmpty())
+            return null;
+        return version;
+    }
+
+    /**
+     * Executes "apt list {package1} {package2} ..." in a bash shell and collects the installed versions.
+     *
+     * @param packages a list of Linux package names.
+     * @return a map where each key is a package name and the value is its installed version.
+     * @throws IOException if the bash command returns an invalid output.
+     */
+    private Map<String, String> getAptPackagesVersion(List<String> packages) throws IOException {
+        String output = runBashCommand("apt list " + String.join(" ", packages));
+        if (output == null)
+            throw new IOException("No output from bash command");
+        Map<String, String> versions = new HashMap<>();
+        packages.forEach(aptPackage -> {
+            String version = extractAptVersionFromString(output, aptPackage);
+            versions.put(aptPackage, version);
         });
-        return map_versions;
+        return versions;
     }
 
     /**
@@ -194,60 +209,67 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
         return result;
     }
 
-    /**
-     * get the version of running operating system by reading /etc/issue.net
-     */
     private String getOsVersion() {
-        try {
-            Path path = Paths.get("/etc/issue.net");
-            if (Files.exists(path)) {
-                return Files.readAllLines(path).stream()
-                        .map(String::valueOf)
-                        .collect(Collectors.joining("\n"));
-            } else
-                throw new FileNotFoundException();
-        } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "Could not read os version from file", e);
+        Path path = Paths.get("/etc/issue.net");
+        if (!Files.exists(path)) {
+            LOGGER.warning("OS version file not found at /etc/issue.net");
+            return "[error]";
         }
-        return "[error]";
+        try {
+            return Files.readAllLines(path).stream()
+                .map(String::valueOf)
+                .collect(Collectors.joining("\n"));
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Could not read OS version from file", e);
+            return "[error]";
+        }
     }
 
-    /**
-     * get the kernel version by running "uname -r"
-     */
     private String getKernelVersion() {
         String command = String.join(" ", "uname", "-r");
         return runBashCommand(command);
     }
 
-    /**
-     * get the java version from java system properties
-     */
     private String getJavaVersion() {
         return String.join("/", System.getProperty("java.vendor"), System.getProperty("java.version"));
     }
 
-    private String getApplicationServerVersion() {
-        return Objects.toString(javax.ejb.TimerService.class.getPackage().getImplementationVersion());
+  /**
+   * Retrieves the current WildFly application server version by querying the
+   * built-in MBean named "jboss.as:management-root=server".
+   *
+   * <p>
+   * Steps:
+   * <ol>
+   *   <li>Obtain a reference to the platform's {@link MBeanServer} via
+   *       {@code ManagementFactory.getPlatformMBeanServer()}.
+   *   <li>Create an {@link ObjectName} instance for the MBean named
+   *       "jboss.as:management-root=server". This is WildFly’s management root
+   *       MBean, which exposes server properties.
+   *   <li>Use {@link MBeanServer#getAttribute} to read the "productVersion"
+   *       attribute from that MBean. This attribute contains the WildFly version.
+   *   <li>If the lookup fails for any reason (e.g., if the MBean isn’t found or
+   *       the attribute doesn’t exist), it logs a warning and returns "[error]".
+   * </ol>
+   *
+   * @return a {@code String} representing the WildFly version, or "[error]" if
+   *         retrieval fails
+   */
+    private String getWildflyVersion() {
+      try {
+        MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+        ObjectName on = new ObjectName("jboss.as:management-root=server");
+        return (String) mbs.getAttribute(on, "productVersion");
+      } catch (MalformedObjectNameException
+               | ReflectionException
+               | AttributeNotFoundException
+               | InstanceNotFoundException
+               | MBeanException e) {
+        LOGGER.log(Level.WARNING, "WildFly version property could not be retrieved.");
+        return "[error]";
+      }
     }
 
-    /**
-     * get the installed version of linux package postgresql-12
-     */
-    private String getPostgresVersion() {
-        return getLinuxPackageVersion("postgresql-12");
-    }
-
-    /**
-     * get the installed version of linux package apache2
-     */
-    private String getApacheVersion() {
-        return getLinuxPackageVersion("apache2");
-    }
-
-    /**
-     * get the running version of dwh-j2ee
-     */
     private String getDwhVersion() {
         String version = "";
         try {
@@ -256,14 +278,7 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
             LOGGER.log(Level.WARNING, "Unable to get ear version via java:app/AppName");
         }
         if (version.isEmpty())
-            version = "[undefined]";
+            version = "[error]";
         return version;
-    }
-
-    /**
-     * get the running version of dwh-api
-     */
-    private String getDwhApiVersion() {
-        return Objects.toString(PreferenceKey.class.getPackage().getImplementationVersion());
     }
 }
