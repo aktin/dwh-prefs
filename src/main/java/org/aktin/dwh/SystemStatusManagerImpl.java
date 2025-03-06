@@ -41,8 +41,8 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
         versions.put("kernel", getKernelVersion());
         versions.put("java", getJavaVersion());
         versions.put("wildfly", getWildflyVersion());
-        versions.put("postgres", getPostgresVersion());
-        versions.put("apache2", getApacheVersion());
+        versions.put("postgres", getLinuxPackageVersion("postgresql"));
+        versions.put("apache2", getLinuxPackageVersion("apache2"));
         versions.put("dwh-j2ee", getDwhVersion());
         brokerResourceManager.putMyResourceProperties("versions", versions);
     }
@@ -225,14 +225,6 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
             version = "[undefined]";
         }
         return version;
-    }
-
-    private String getPostgresVersion() {
-        return getLinuxPackageVersion("postgresql");
-    }
-
-    private String getApacheVersion() {
-        return getLinuxPackageVersion("apache2");
     }
 
     private String getDwhVersion() {
