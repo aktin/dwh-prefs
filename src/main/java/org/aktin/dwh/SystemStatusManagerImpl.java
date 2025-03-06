@@ -1,9 +1,17 @@
 package org.aktin.dwh;
 
+import java.lang.management.ManagementFactory;
 import javax.annotation.PostConstruct;
 import javax.ejb.Startup;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import javax.management.AttributeNotFoundException;
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanException;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+import javax.management.ReflectionException;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import java.io.*;
@@ -44,7 +52,7 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
         if (isRunningInDocker()) {
             versions.put("host", "Docker");
         } else {
-            versions.put("postgres", getLinuxPackageVersion("postgresql"));
+            versions.put("postgresql", getLinuxPackageVersion("postgresql"));
             versions.put("wildfly", getWildflyVersion());
             versions.put("apache2", getLinuxPackageVersion("apache2"));
             versions.put("aktin-notaufnahme-i2b2",
@@ -226,13 +234,40 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
         return String.join("/", System.getProperty("java.vendor"), System.getProperty("java.version"));
     }
 
+  /**
+   * Retrieves the current WildFly application server version by querying the
+   * built-in MBean named "jboss.as:management-root=server".
+   *
+   * <p>
+   * Steps:
+   * <ol>
+   *   <li>Obtain a reference to the platform's {@link MBeanServer} via
+   *       {@code ManagementFactory.getPlatformMBeanServer()}.
+   *   <li>Create an {@link ObjectName} instance for the MBean named
+   *       "jboss.as:management-root=server". This is WildFly’s management root
+   *       MBean, which exposes server properties.
+   *   <li>Use {@link MBeanServer#getAttribute} to read the "productVersion"
+   *       attribute from that MBean. This attribute contains the WildFly version.
+   *   <li>If the lookup fails for any reason (e.g., if the MBean isn’t found or
+   *       the attribute doesn’t exist), it logs a warning and returns "[error]".
+   * </ol>
+   *
+   * @return a {@code String} representing the WildFly version, or "[error]" if
+   *         retrieval fails
+   */
     private String getWildflyVersion() {
-        String version = System.getProperty("jboss.product.version");
-        if (version == null) {
-            LOGGER.log(Level.WARNING, "WildFly version property not found.");
-            version = "[undefined]";
-        }
-        return version;
+      try {
+        MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+        ObjectName on = new ObjectName("jboss.as:management-root=server");
+        return (String) mbs.getAttribute(on, "productVersion");
+      } catch (MalformedObjectNameException
+               | ReflectionException
+               | AttributeNotFoundException
+               | InstanceNotFoundException
+               | MBeanException e) {
+        LOGGER.log(Level.WARNING, "WildFly version property could not be retrieved.");
+        return "[error]";
+      }
     }
 
     private String getDwhVersion() {
@@ -243,7 +278,7 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
             LOGGER.log(Level.WARNING, "Unable to get ear version via java:app/AppName");
         }
         if (version.isEmpty())
-            version = "[undefined]";
+            version = "[error]";
         return version;
     }
 }
