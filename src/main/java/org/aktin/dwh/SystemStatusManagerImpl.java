@@ -194,18 +194,19 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
     }
 
     private String getOsVersion() {
-        try {
-            Path path = Paths.get("/etc/issue.net");
-            if (Files.exists(path)) {
-                return Files.readAllLines(path).stream()
-                        .map(String::valueOf)
-                        .collect(Collectors.joining("\n"));
-            } else
-                throw new FileNotFoundException();
-        } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "Could not read os version from file", e);
+        Path path = Paths.get("/etc/issue.net");
+        if (!Files.exists(path)) {
+            LOGGER.warning("OS version file not found at /etc/issue.net");
+            return "[error]";
         }
-        return "[error]";
+        try {
+            return Files.readAllLines(path).stream()
+                .map(String::valueOf)
+                .collect(Collectors.joining("\n"));
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Could not read OS version from file", e);
+            return "[error]";
+        }
     }
 
     private String getKernelVersion() {
