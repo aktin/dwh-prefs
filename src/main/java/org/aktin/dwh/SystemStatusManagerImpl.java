@@ -95,44 +95,39 @@ public class SystemStatusManagerImpl implements SystemStatusManager {
     }
 
     /**
-     * Runs "apt list {package}" in a bash shell to retrieve the installed version of a given linux package
+     * Executes "apt list {aptPackage}" in a bash shell to retrieve the installed version of the specified Linux package.
      *
-     * @param aptPackage name of linux package
-     * @return corresponding version or null if not installed
-     * @throws IOException if bash command returns an invalid output
+     * @param aptPackage the name of the Linux package.
+     * @return the installed version, or null if not installed.
+     * @throws IOException if the bash command returns an invalid output.
      */
     private String getAptPackageVersion(String aptPackage) throws IOException {
-        String version;
-        String command = String.join(" ", "apt", "list", aptPackage);
-        String output_command = runBashCommand(command);
-        if (output_command == null)
-            throw new IOException();
-        version = extractAptVersionFromString(output_command, aptPackage);
+        String output = runBashCommand("apt list " + aptPackage);
+        if (output == null)
+            throw new IOException("No output from bash command");
+        String version = extractAptVersionFromString(output, aptPackage);
         if (version.isEmpty())
-            version = null;
+            return null;
         return version;
     }
 
     /**
-     * Runs "apt list {package1} {package2} {etc.}" in a bash shell on a given list of linux package names
-     * and collects the package name with corresponding version in a map
+     * Executes "apt list {package1} {package2} ..." in a bash shell and collects the installed versions.
      *
-     * @param list_packages list of linux package names
-     * @return Map with {package name, installed version}
-     * @throws IOException if bash command returns an invalid output
+     * @param packages a list of Linux package names.
+     * @return a map where each key is a package name and the value is its installed version.
+     * @throws IOException if the bash command returns an invalid output.
      */
-    private Map<String, String> getAptPackagesVersion(List<String> list_packages) throws IOException {
-        Map<String, String> map_versions = new HashMap<>();
-        String packages = String.join(" ", list_packages);
-        String command = String.join(" ", "apt", "list", packages);
-        String output_command = runBashCommand(command);
-        if (output_command == null)
-            throw new IOException();
-        list_packages.forEach(aptPackage -> {
-            String version = extractAptVersionFromString(output_command, aptPackage);
-            map_versions.put(aptPackage, version);
+    private Map<String, String> getAptPackagesVersion(List<String> packages) throws IOException {
+        String output = runBashCommand("apt list " + String.join(" ", packages));
+        if (output == null)
+            throw new IOException("No output from bash command");
+        Map<String, String> versions = new HashMap<>();
+        packages.forEach(aptPackage -> {
+            String version = extractAptVersionFromString(output, aptPackage);
+            versions.put(aptPackage, version);
         });
-        return map_versions;
+        return versions;
     }
 
     /**
