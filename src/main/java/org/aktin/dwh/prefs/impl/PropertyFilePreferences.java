@@ -149,6 +149,15 @@ public class PropertyFilePreferences implements Preferences {
 		return Paths.get(String.valueOf(this.aktinPropertiesFilepath.getParent()), "backup.txt");
 	}
 
+	public String loadBackupFile() {
+		try {
+			this.guard.rollbackPropertiesFile();
+		} catch (IOException io){
+			return "ERR:Could not restore old properties from backup:"+io.getMessage();
+		}
+		return "";
+	}
+
 	@Override
 	public String get(String key) {
 		return props.getProperty(key);
