@@ -13,6 +13,7 @@ import java.util.logging.Logger;
 
 import javax.inject.Singleton;
 
+import com.sun.org.apache.xalan.internal.xsltc.compiler.CompilerException;
 import org.aktin.Preferences;
 import org.aktin.dwh.PreferenceKey;
 
@@ -101,30 +102,32 @@ public class PropertyFilePreferences implements Preferences {
 
 	/**
 	 * Receives a List of key value pairs of updated preference properties.
-	 * Iterates the current aktin.properties file and updates the values. Then overwrites the original file.
+	 * Iterates the current aktin.properties file and updates the values, then overwrites the original file.
 	 * Returns a String that contains an error message if file could not be loaded or changed,
-	 * otherwise return is empty String.
+	 * otherwise return is response of the wildfly restart response.
 	 * @param newProps
 	 * @return String
 	 */
-	public String updatePropertiesFile(Map<String, String> newProps) throws IOException, InterruptedException {
+	public String updatePropertiesFile(Map<String, String> newProps) throws IOException {
 		WildflyGuardian guard = new WildflyGuardian(getBackupPath().toString(), this.aktinPropertiesFilepath.toString());
 		guard.createBackup();
+
+		// Read all properties from current aktin.properties
 		List<String> lines;
 		try {
 			lines = Files.readAllLines(this.aktinPropertiesFilepath);
 		} catch (IOException e) {
             return "ERR: properties file could not be loaded at: "+String.valueOf(this.aktinPropertiesFilepath);
         }
-        List<String> modifiedLines = new ArrayList<>();
 
-		// Update values from property file
+		// Update property values with received changes
+		List<String> modifiedLines = new ArrayList<>();	// Stores all lines of the future properties file
 		for (String line: lines) {
-			String[] keyValue = line.split("=", 2);
+			String[] keyValue = line.split("=", 2);	// limit = 2, because property keys do not contain "=" and this way all "=" signs in values are ignored, for example to not accidentally split a url
 			if (keyValue.length == 2){
 				String key = keyValue[0];
 				String value = keyValue[1];
-				if (!line.startsWith("#") && !key.isEmpty() && newProps.containsKey(key)) {
+				if (!line.startsWith("#") && !key.isEmpty() && newProps.containsKey(key)) {	// Skips Commented lines "#" and empty keys
 					line = line.replace(value, newProps.get(key));
 				}
 				modifiedLines.add(line);
@@ -139,19 +142,7 @@ public class PropertyFilePreferences implements Preferences {
 		} catch (IOException e) {
 			return "ERR: properties file could not be overwritten: "+String.valueOf(this.aktinPropertiesFilepath);
 		}
-		String restart = this.getGuard().restartWildflyService();
-
-		return restart;
-	}
-
-	private String applyChanges(WildflyGuardian guard) throws IOException, InterruptedException {
-		return guard.restartWildflyService();
-//		guard.start();
-//		String target = "src/main/java/org/aktin/dwh/prefs/impl/WildflyGuardian.java";
-//		ProcessBuilder pb = new ProcessBuilder("java", "cp", target);
-//		pb.environment().put("BACKUP_PATH", getBackupPath().toString());
-//		pb.environment().put("ACTIVE_PATH", this.aktinPropertiesFilepath.toString());
-//		pb.start();
+		return this.getGuard().restartWildflyService();	// Restart wildfly to use the new properties
 	}
 
 	private Path getBackupPath() {
