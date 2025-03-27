@@ -12,8 +12,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.inject.Singleton;
-
-import com.sun.org.apache.xalan.internal.xsltc.compiler.CompilerException;
 import org.aktin.Preferences;
 import org.aktin.dwh.PreferenceKey;
 
@@ -21,8 +19,6 @@ import org.aktin.dwh.PreferenceKey;
  * Implements the AKTIN preferences interface and reads the
  * AKTIN preferences from a properties file 'aktin.properties'
  * in the application server configuration directory on startup.
- * 
- *
  */
 @Singleton
 public class PropertyFilePreferences implements Preferences {
@@ -30,7 +26,7 @@ public class PropertyFilePreferences implements Preferences {
 	private Properties props;
 	private final Path aktinPropertiesFilepath = Paths.get(System.getProperty("jboss.server.config.dir"), "aktin.properties");
 
-	private WildflyGuardian guard = new WildflyGuardian(this.getBackupPath().toString(), this.aktinPropertiesFilepath.toString());
+	private WildflyGuardian guard = new WildflyGuardian(this.aktinPropertiesFilepath.toString());
 
 	public PropertyFilePreferences() throws IOException {
 		// load preferences (call load(default file)
@@ -109,53 +105,20 @@ public class PropertyFilePreferences implements Preferences {
 	 * @return String
 	 */
 	public String updatePropertiesFile(Map<String, String> newProps) throws IOException {
-		WildflyGuardian guard = new WildflyGuardian(getBackupPath().toString(), this.aktinPropertiesFilepath.toString());
-		guard.createBackup();
+		this.getGuard().createBackup();
+		Properties properties = new Properties();
+		BufferedReader reader = new BufferedReader(new FileReader(String.valueOf(this.aktinPropertiesFilepath)));
+		properties.load(reader);
 
-		// Read all properties from current aktin.properties
-		List<String> lines;
-		try {
-			lines = Files.readAllLines(this.aktinPropertiesFilepath);
-		} catch (IOException e) {
-            return "ERR: properties file could not be loaded at: "+String.valueOf(this.aktinPropertiesFilepath);
-        }
-
-		// Update property values with received changes
-		List<String> modifiedLines = new ArrayList<>();	// Stores all lines of the future properties file
-		for (String line: lines) {
-			String[] keyValue = line.split("=", 2);	// limit = 2, because property keys do not contain "=" and this way all "=" signs in values are ignored, for example to not accidentally split a url
-			if (keyValue.length == 2){
-				String key = keyValue[0];
-				String value = keyValue[1];
-				if (!line.startsWith("#") && !key.isEmpty() && newProps.containsKey(key)) {	// Skips Commented lines "#" and empty keys
-					line = line.replace(value, newProps.get(key));
-				}
-				modifiedLines.add(line);
-			}
+		for (Map.Entry<String, String> entry : newProps.entrySet()) {
+			properties.setProperty(entry.getKey(), entry.getValue());
 		}
 
-		// Overwrite properties file with new values
-		try {
-			if(!modifiedLines.isEmpty()) {
-				Files.write(this.aktinPropertiesFilepath, modifiedLines, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
-			}
-		} catch (IOException e) {
-			return "ERR: properties file could not be overwritten: "+String.valueOf(this.aktinPropertiesFilepath);
+		try(FileWriter writer = new FileWriter(String.valueOf(this.aktinPropertiesFilepath))) {
+			properties.store(writer,"Updated Properties");
 		}
+
 		return this.getGuard().restartWildflyService();	// Restart wildfly to use the new properties
-	}
-
-	private Path getBackupPath() {
-		return Paths.get(String.valueOf(this.aktinPropertiesFilepath.getParent()), "backup.txt");
-	}
-
-	public String loadBackupFile() {
-		try {
-			this.guard.rollbackPropertiesFile();
-		} catch (IOException io){
-			return "ERR:Could not restore old properties from backup:"+io.getMessage();
-		}
-		return "";
 	}
 
 	@Override
