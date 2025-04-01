@@ -24,21 +24,27 @@ import org.aktin.dwh.PreferenceKey;
 public class PropertyFilePreferences implements Preferences {
 	private static final Logger log = Logger.getLogger(PropertyFilePreferences.class.getName());
 	private Properties props;
-	private final Path aktinPropertiesFilepath = Paths.get(System.getProperty("jboss.server.config.dir"), "aktin.properties");
+	private final Path aktinPropertiesFilepath;
 
-	private WildflyGuardian guard = new WildflyGuardian(this.aktinPropertiesFilepath.toString());
+	private final WildflyGuardian guard;
 
 	public PropertyFilePreferences() throws IOException {
 		// load preferences (call load(default file)
-		try( Reader in = Files.newBufferedReader(this.aktinPropertiesFilepath, StandardCharsets.UTF_8)){
+		Path propFile = Paths.get(System.getProperty("jboss.server.config.dir"), "aktin.properties");
+		try( Reader in = Files.newBufferedReader(propFile, StandardCharsets.UTF_8)){
 			load(in);
 		}
+		this.aktinPropertiesFilepath = propFile;
+		this.guard = new WildflyGuardian(this.aktinPropertiesFilepath.toString());
 	}
 
 	public PropertyFilePreferences(InputStream properties) throws IOException{
-		try( Reader r = new InputStreamReader(properties, StandardCharsets.UTF_8) ){
-			load(r);
+		Path propFile = Paths.get(System.getProperty("jboss.server.config.dir"), "aktin.properties");
+		try( Reader in = new InputStreamReader(properties, StandardCharsets.UTF_8) ){
+			load(in);
 		}
+		this.aktinPropertiesFilepath = propFile;
+		this.guard = new WildflyGuardian(this.aktinPropertiesFilepath.toString());
 	}
 
 	public static PropertyFilePreferences empty(){
@@ -105,20 +111,37 @@ public class PropertyFilePreferences implements Preferences {
 	 * @return String
 	 */
 	public String updatePropertiesFile(Map<String, String> newProps) throws IOException {
+		// Copy the current property file to a backup space
 		this.getGuard().createBackup();
-		Properties properties = new Properties();
-		BufferedReader reader = new BufferedReader(new FileReader(String.valueOf(this.aktinPropertiesFilepath)));
-		properties.load(reader);
-
+		Properties properties = this.getProperties();
+		// Update the values of the current properties with new values from "newProps"
 		for (Map.Entry<String, String> entry : newProps.entrySet()) {
 			properties.setProperty(entry.getKey(), entry.getValue());
 		}
-
+		// Store new configuration in the active properties filepath
 		try(FileWriter writer = new FileWriter(String.valueOf(this.aktinPropertiesFilepath))) {
 			properties.store(writer,"Updated Properties");
 		}
+		return this.getGuard().restartWildflyService();	// Restart wildfly to apply the new properties
+	}
 
-		return this.getGuard().restartWildflyService();	// Restart wildfly to use the new properties
+	/**
+	 * This method instructs the wildfly guardian to restore the last backup of the properties configuration.
+	 * It automatically restarts the wildfly service.
+	 * @throws IOException
+	 */
+	public void loadBackupFile() throws IOException {
+		this.getGuard().rollbackToLastVersion();
+	}
+
+	/**
+	 * This method instructs the wildfly guardian to restore a specific backup version of the properties configuration.
+	 * It automatically restarts the wildfly service.
+	 * @param path - Path to the specific backup file the user wants to restore
+	 * @throws IOException
+	 */
+	public void loadBackupFile(Path path) throws IOException {
+		this.getGuard().rollbackToSpecificVersion(path);
 	}
 
 	@Override
@@ -138,6 +161,10 @@ public class PropertyFilePreferences implements Preferences {
 
 	public WildflyGuardian getGuard() {
 		return this.guard;
+	}
+
+	private Properties getProperties() {
+		return this.props;
 	}
 
 }
