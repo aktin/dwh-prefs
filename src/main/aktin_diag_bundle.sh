@@ -5,36 +5,39 @@
 set -euo pipefail
 
 #detect deployment type (Docker or Debian)
-if command -v docker &> /dev/null; then
+if command -v docker &> /dev/null && docker ps --filter "label=com.docker.compose.service=wildfly" | grep -q "wildfly"; then
     DEPLOYMENT_TYPE="Docker"
-    WILDFLY_HOME="build-wildfly-1:/opt/wildfly"
-    APACHE_HOME="build-httpd-1:/var/log/apache2"
-    POSTGRES_HOME="build-database-1:/var/log/postgresql"
+
+    WILDFLY_CONTAINER=$(docker ps --filter "label=com.docker.compose.service=wildfly" --format '{{.Names}}' | head -n 1)
+    APACHE_CONTAINER=$(docker ps --filter "label=com.docker.compose.service=httpd" --format '{{.Names}}' | head -n 1)
+    POSTGRES_CONTAINER=$(docker ps --filter "label=com.docker.compose.service=database" --format '{{.Names}}' | head -n 1)
+
+    WILDFLY_HOME="${WILDFLY_CONTAINER}:/opt/wildfly"
+    APACHE_LOG="${APACHE_CONTAINER}:/var/log/apache2"
 else
     DEPLOYMENT_TYPE="Debian"
     WILDFLY_HOME="/opt/wildfly"
-    APACHE_HOME="/var/log/apache2"
-    POSTGRES_HOME="/var/log/postgresql"
+    APACHE_LOG="/var/log/apache2"
+    POSTGRES_LOG="/var/log/postgresql"
 fi
 
 # create a log folder for this diagnosis
 CURRENT=$(date +%Y_%h_%d_%H%M)
-readonly LOGFOLDER=$(pwd)/aktin_diag_$CURRENT
-if [[ ! -d $(pwd)/aktin_diag_$CURRENT ]]; then
-    mkdir $(pwd)/aktin_diag_$CURRENT
+readonly LOGFOLDER="/tmp/aktin_diag_$CURRENT"
+if [[ ! -d "$LOGFOLDER" ]]; then
+    mkdir "$LOGFOLDER"
 fi
 
 # check for root privileges
 if [[ $EUID -ne 0 ]]; then
-   echo -e "Dieses Script muss mit root-Rechten ausgeführt werden!"
+   echo -e "This script must be executed with root privileges!"
    exit 1
 fi
 
 copy() {
   local src=$1
   local dest=$2
-  #check for docker
-  if [[ $src == *":"* ]] && command -v docker &> /dev/null; then
+  if [[ "$DEPLOYMENT_TYPE" == "Docker" ]]; then
     docker cp $src $dest
   else
     cp -R $src $dest
@@ -44,8 +47,7 @@ copy() {
 run_cmd() {
   local target=$1
   shift
-  #check for docker
-  if [[ $target == *":"* ]] && command -v docker &> /dev/null; then
+  if [[ "$DEPLOYMENT_TYPE" == "Docker" ]]; then
     local container=${target%%:*}
     docker exec $container "$@"
   else
@@ -56,11 +58,20 @@ run_cmd() {
 # copy wildfly log into log folder
 copy $WILDFLY_HOME/standalone/log $LOGFOLDER/wildfly_log
 
-# copy apache2 log into log folder
-copy $APACHE_HOME $LOGFOLDER/apache_log
+# copy apache2 logs into log folder
+if [[ "$DEPLOYMENT_TYPE" == "Docker" ]]; then
+    copy $APACHE_LOG $LOGFOLDER/apache_log
+    docker logs --tail 2000 "$APACHE_CONTAINER" > "$LOGFOLDER/apache_container_log.txt" 2>&1
+else
+    copy "$APACHE_LOG" "$LOGFOLDER/apache_log"
+fi
 
-# copy postgresql log into log folder
-copy $POSTGRES_HOME $LOGFOLDER/postgresql_log
+# Copy postgresql logs into log folder
+if [[ "$DEPLOYMENT_TYPE" == "Docker" ]]; then
+    docker logs --tail 2000 "$POSTGRES_CONTAINER" > "$LOGFOLDER/database_container_log.txt" 2>&1
+else
+    copy $POSTGRES_LOG $LOGFOLDER/postgresql_log
+fi
 
 # list deployments of wildfly
 local_path=${WILDFLY_HOME#*:}
@@ -80,9 +91,9 @@ fi
 echo -e "+++++ WILDFLY PS +++++" >> $LOGFOLDER/services.txt
 echo $(ps -ef | grep wildfly) >> $LOGFOLDER/services.txt
 
-echo -e "+++++ POSTGRES SERVICE STATUS +++++$" >> $LOGFOLDER/services.txt
+echo -e "+++++ POSTGRES SERVICE STATUS +++++" >> $LOGFOLDER/services.txt
 if [[ $DEPLOYMENT_TYPE == "Docker" ]]; then
-    docker ps -a --filter "name=${POSTGRES_HOME%%:*}" >> $LOGFOLDER/services.txt
+    docker ps -a --filter "name=${POSTGRES_CONTAINER}" >> $LOGFOLDER/services.txt
 else
   echo $(service postgresql status) >> $LOGFOLDER/services.txt
 fi
@@ -93,13 +104,26 @@ echo $(ps -ef | grep postgresql) >> $LOGFOLDER/services.txt
 echo -e "+++++ JAVA PS +++++" >> $LOGFOLDER/services.txt
 echo $(ps -ef | grep java) >> $LOGFOLDER/services.txt
 
-# check version numbers
-echo -e "+++++ OPERATING SYSTEM +++++" > $LOGFOLDER/version.txt
-echo $(hostnamectl) >> $LOGFOLDER/version.txt
+echo -e "+++++ OPERATING SYSTEM (HOST) +++++" > $LOGFOLDER/version.txt
+cat /etc/os-release >> $LOGFOLDER/version.txt
+
+if [[ "$DEPLOYMENT_TYPE" == "Docker" ]]; then
+    echo -e "+++++ DOCKER ENGINE VERSION +++++" >> "$LOGFOLDER/version.txt"
+    docker --version >> "$LOGFOLDER/version.txt"
+
+    echo -e "+++++ DOCKER COMPOSE VERSION +++++" >> "$LOGFOLDER/version.txt"
+    docker compose version >> "$LOGFOLDER/version.txt" 2>/dev/null || docker-compose --version >> "$LOGFOLDER/version.txt" 2>/dev/null || echo "Not found" >> "$LOGFOLDER/version.txt"
+
+    echo -e "+++++ OPERATING SYSTEM (WILDFLY CONTAINER) +++++" >> "$LOGFOLDER/version.txt"
+    run_cmd "$WILDFLY_HOME" cat /etc/os-release >> "$LOGFOLDER/version.txt"
+fi
 
 echo -e "+++++ POSTGRES VERSION +++++" >> $LOGFOLDER/version.txt
-run_cmd $POSTGRES_HOME psql --version >> $LOGFOLDER/version.txt
-#echo $(psql --version) >> $LOGFOLDER/version.txt
+if [[ "$DEPLOYMENT_TYPE" == "Docker" ]]; then
+    run_cmd $POSTGRES_CONTAINER psql --version >> $LOGFOLDER/version.txt
+else
+    psql --version >> $LOGFOLDER/version.txt
+fi
 
 echo -e "+++++ JAVA VERSION +++++" >> $LOGFOLDER/version.txt
 echo $(java --version) >> $LOGFOLDER/version.txt
@@ -110,30 +134,27 @@ top -b -n 1 > $LOGFOLDER/ram.txt
 #collect metadate
 echo -e "+++++ INSTITUTION ID +++++" >> $LOGFOLDER/metadata.txt
 if [[ $DEPLOYMENT_TYPE == "Docker" ]]; then
-  docker exec ${WILDFLY_HOME%%:*} grep '^local.o=' /usr/share/aktin/dev-aktin.properties | cut -d '=' -f2 >> $LOGFOLDER/metadata.txt
+  docker exec ${WILDFLY_HOME%%:*} grep '^local.o=' /etc/aktin/aktin.properties | cut -d '=' -f2 >> $LOGFOLDER/metadata.txt
 else
-  grep '^local.o=' /usr/share/aktin/dev-aktin.properties | cut -d '=' -f2 >> $LOGFOLDER/metadata.txt
+  grep '^local.o=' /etc/aktin/aktin.properties | cut -d '=' -f2 >> $LOGFOLDER/metadata.txt
 fi
 
 echo -e "+++++ SITE ID +++++" >> $LOGFOLDER/metadata.txt
 if [[ $DEPLOYMENT_TYPE == "Docker" ]]; then
-  docker exec ${WILDFLY_HOME%%:*} grep '^local.ou=' /usr/share/aktin/dev-aktin.properties | cut -d '=' -f2 >> $LOGFOLDER/metadata.txt
+  docker exec ${WILDFLY_HOME%%:*} grep '^local.ou=' /etc/aktin/aktin.properties | cut -d '=' -f2 >> $LOGFOLDER/metadata.txt
 else
-  grep '^local.ou=' /usr/share/aktin/dev-aktin.properties | cut -d '=' -f2 >> $LOGFOLDER/metadata.txt
+  grep '^local.ou=' /etc/aktin/aktin.properties | cut -d '=' -f2 >> $LOGFOLDER/metadata.txt
 fi
 
 echo -e "+++++ DWH VERSION +++++" >> $LOGFOLDER/metadata.txt
 if [[ $DEPLOYMENT_TYPE == "Docker" ]]; then
-  docker exec ${WILDFLY_HOME%%:*} grep '^local.cn=' /usr/share/aktin/dev-aktin.properties | cut -d '=' -f2 >> $LOGFOLDER/metadata.txt
+  docker exec ${WILDFLY_HOME%%:*} grep '^local.cn=' /etc/aktin/aktin.properties | cut -d '=' -f2 >> $LOGFOLDER/metadata.txt
 else
-  grep '^local.cn=' /usr/share/aktin/dev-aktin.properties | cut -d '=' -f2 >> $LOGFOLDER/metadata.txt
+  grep '^local.cn=' /etc/aktin/aktin.properties | cut -d '=' -f2 >> $LOGFOLDER/metadata.txt
 fi
 
 echo -e "+++++ DEPLOYMENT TYPE +++++" >> $LOGFOLDER/metadata.txt
 echo "$DEPLOYMENT_TYPE" >> $LOGFOLDER/metadata.txt
-
-echo -e "+++++ TIMESTAMP +++++" >> $LOGFOLDER/metadata.txt
-echo "$CURRENT" >> $LOGFOLDER/metadata.txt
 
 # check permission and existence of folders
 if run_cmd $WILDFLY_HOME test -d /var/lib/aktin/ ; then
@@ -177,9 +198,8 @@ else
     echo -e "FOLDER /var/lib/aktin DOES NOT EXIST" >>  $LOGFOLDER/permissions.txt
 fi
 
-# print R environment variables
- R --vanilla --slave -e 'Sys.getenv()' > $LOGFOLDER/R_environment_vars.txt
-
-#zip all logs and send per mail
-tar -czf $LOGFOLDER/aktin_diag_$CURRENT.tar.gz --absolute-names --warning=no-file-changed $LOGFOLDER/
-curl -u ondtmZILwmueOoS:aktindiag5918 -T $LOGFOLDER/aktindiag.tar.gz "https://cs.uol.de/public.php/webdav/aktindiag_$dt.tar.gz"
+# zip all logs, delete logfolder and return path to zip
+ARCHIVE_PATH="/tmp/aktin_diag_$CURRENT.tar.gz"
+tar -czf $ARCHIVE_PATH --absolute-names --warning=no-file-changed "$LOGFOLDER/"
+rm -rf $LOGFOLDER
+echo $ARCHIVE_PATH
