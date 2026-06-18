@@ -1,28 +1,17 @@
 package org.aktin.dwh.prefs.impl;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.UncheckedIOException;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.Properties;
-import java.util.Set;
+import java.nio.file.*;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.inject.Singleton;
-
 import org.aktin.Preferences;
 import org.aktin.dwh.PreferenceKey;
 
@@ -30,13 +19,14 @@ import org.aktin.dwh.PreferenceKey;
  * Implements the AKTIN preferences interface and reads the
  * AKTIN preferences from a properties file 'aktin.properties'
  * in the application server configuration directory on startup.
- * 
- *
  */
 @Singleton
-public class PropertyFilePreferences implements Preferences{
+public class PropertyFilePreferences implements Preferences {
 	private static final Logger log = Logger.getLogger(PropertyFilePreferences.class.getName());
 	private Properties props;
+	private final Path aktinPropertiesFilepath;
+
+	private final WildflyGuardian guard;
 
 	public PropertyFilePreferences() throws IOException {
 		// load preferences (call load(default file)
@@ -44,12 +34,17 @@ public class PropertyFilePreferences implements Preferences{
 		try( Reader in = Files.newBufferedReader(propFile, StandardCharsets.UTF_8)){
 			load(in);
 		}
+		this.aktinPropertiesFilepath = propFile;
+		this.guard = new WildflyGuardian(this.aktinPropertiesFilepath.toString());
 	}
 
 	public PropertyFilePreferences(InputStream properties) throws IOException{
-		try( Reader r = new InputStreamReader(properties, StandardCharsets.UTF_8) ){
-			load(r);
+		Path propFile = Paths.get(System.getProperty("jboss.server.config.dir"), "aktin.properties");
+		try( Reader in = new InputStreamReader(properties, StandardCharsets.UTF_8) ){
+			load(in);
 		}
+		this.aktinPropertiesFilepath = propFile;
+		this.guard = new WildflyGuardian(this.aktinPropertiesFilepath.toString());
 	}
 
 	public static PropertyFilePreferences empty(){
@@ -106,6 +101,49 @@ public class PropertyFilePreferences implements Preferences{
 		}
 		return "http://"+addr.getHostAddress()+"/";
 	}
+
+	/**
+	 * Receives a List of key value pairs of updated preference properties.
+	 * Iterates the current aktin.properties file and updates the values, then overwrites the original file.
+	 * Returns a String that contains an error message if file could not be loaded or changed,
+	 * otherwise return is response of the wildfly restart response.
+	 * @param newProps
+	 * @return String
+	 */
+	public String updatePropertiesFile(Map<String, String> newProps) throws IOException {
+		// Copy the current property file to a backup space
+		this.getGuard().createBackup();
+		Properties properties = this.getProperties();
+		// Update the values of the current properties with new values from "newProps"
+		for (Map.Entry<String, String> entry : newProps.entrySet()) {
+			properties.setProperty(entry.getKey(), entry.getValue());
+		}
+		// Store new configuration in the active properties filepath
+		try(FileWriter writer = new FileWriter(String.valueOf(this.aktinPropertiesFilepath))) {
+			properties.store(writer,"Updated Properties");
+		}
+		return this.getGuard().restartWildflyService();	// Restart wildfly to apply the new properties
+	}
+
+	/**
+	 * This method instructs the wildfly guardian to restore the last backup of the properties configuration.
+	 * It automatically restarts the wildfly service.
+	 * @throws IOException
+	 */
+	public void loadBackupFile() throws IOException {
+		this.getGuard().rollbackToLastVersion();
+	}
+
+	/**
+	 * This method instructs the wildfly guardian to restore a specific backup version of the properties configuration.
+	 * It automatically restarts the wildfly service.
+	 * @param path - Path to the specific backup file the user wants to restore
+	 * @throws IOException
+	 */
+	public void loadBackupFile(Path path) throws IOException {
+		this.getGuard().rollbackToSpecificVersion(path);
+	}
+
 	@Override
 	public String get(String key) {
 		return props.getProperty(key);
@@ -120,4 +158,13 @@ public class PropertyFilePreferences implements Preferences{
 	public void put(String key, String value){
 		props.put(key, value);
 	}
+
+	public WildflyGuardian getGuard() {
+		return this.guard;
+	}
+
+	private Properties getProperties() {
+		return this.props;
+	}
+
 }
